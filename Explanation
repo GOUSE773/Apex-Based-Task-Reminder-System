@@ -1,0 +1,109 @@
+# 1. Project Explanation
+The Apex-Based Task Reminder System is a Scheduled Apex Job that sends email reminders for pending tasks in Salesforce. It includes:
+
+1.1 Scheduled Apex Class (TaskReminderJob) – Runs at a scheduled time and sends email reminders for incomplete tasks.
+
+""" global class TaskReminderJob implements Schedulable {
+    global void execute(SchedulableContext sc) {
+        List<Task> pendingTasks = [SELECT Id, Subject, Status, OwnerId 
+                                   FROM Task 
+                                   WHERE Status != 'Completed' AND ActivityDate = TODAY];
+
+        for (Task t : pendingTasks) {
+            Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+            email.setSubject('Task Reminder: ' + t.Subject);
+            email.setPlainTextBody('You have a pending task: ' + t.Subject);
+            email.setTargetObjectId(t.OwnerId);
+            email.setSaveAsActivity(false);
+            Messaging.sendEmail(new Messaging.SingleEmailMessage[]{email});
+        }
+    }
+}
+ """
+
+1.2 Batch Apex Class (TaskReminderBatch) – Handles large task volumes efficiently.
+
+""" global class TaskReminderBatch implements Database.Batchable<sObject> {
+    global Database.QueryLocator start(Database.BatchableContext BC) {
+        return Database.getQueryLocator('SELECT Id, Subject, Status, OwnerId FROM Task WHERE Status != \'Completed\' AND ActivityDate = TODAY');
+    }
+    
+    global void execute(Database.BatchableContext BC, List<Task> scope) {
+        List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
+
+        for (Task t : scope) {
+            Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+            email.setSubject('Task Reminder: ' + t.Subject);
+            email.setPlainTextBody('You have a pending task: ' + t.Subject);
+            email.setTargetObjectId(t.OwnerId);
+            email.setSaveAsActivity(false);
+            emails.add(email);
+        }
+
+        if (!emails.isEmpty()) {
+            Messaging.sendEmail(emails);
+        }
+    }
+    
+    global void finish(Database.BatchableContext BC) {}
+}
+ """
+
+1.3 Test Class (TaskReminderJobTest) – Ensures at least 75% code coverage for deployment.
+
+""" @isTest
+private class TaskReminderJobTest {
+    @isTest
+    static void testExecute() {
+        Task testTask = new Task(Subject = 'Test Task', Status = 'Not Started', ActivityDate = Date.today());
+        insert testTask;
+
+        Test.startTest();
+        TaskReminderJob job = new TaskReminderJob();
+        job.execute(null);
+        Test.stopTest();
+
+        System.assert(true, 'Job executed successfully');
+    }
+}
+ """
+
+1.4 Deployment Steps – Guides for implementing and testing the project.
+1.5 GitHub Integration – How to commit and push the project to GitHub.
+
+# 1.1 Apex Code Implementation
+Apex Scheduled Job                         <-- TaskReminderJob.cls
+Batch Apex Class                           <-- TaskReminderBatch.cls
+Test Class                                 <-- TaskReminderJobTest.cls
+
+# Deployment Steps in Salesforce
+## Method 1: Using Developer Console
+1. Open Developer Console → New Apex Class
+2. Paste TaskReminderJob and save
+3. Repeat for TaskReminderBatch and TaskReminderJobTest
+4. Run the following in Anonymous Apex to schedule:
+
+""" System.schedule('Daily Task Reminder', '0 0 8 * * ?', new TaskReminderJob()); """  <-- Runs every day at 8 AM
+
+## Method 2: Using Salesforce DX (SFDX)
+1. Install Salesforce CLI
+2. Run the following commands
+
+""" sfdx force:auth:web:login                   <-- Login to Salesforce
+    sfdx force:source:push -u <your-org-alias>  <-- Push code to org
+    sfdx force:apex:test:run                    <--codecoverage """
+
+# GitHub Setup and Push
+## Step 1: Create a New Repository
+   Go to GitHub - Create New Repository
+   Set repository name: Task-Reminder-System (Your choice)
+   Choose Private or Public - Click Create Repository (Your choice)
+
+## Step 2: Push Code to GitHub
+    
+    cd Task-Reminder-System <-- Navigate to your local project folder
+    git init <--  Initialize Git
+    git remote add origin https://github.com/yourusername/Task-Reminder-System.git <-- Add GitHub repository as remote 
+    git add . <-- Add files to Git
+    git commit -m "Initial Commit - Task Reminder System" <-- Commit files
+    git push -u origin main <-- Push to GitHub
