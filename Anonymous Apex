@@ -1,0 +1,1 @@
+System.schedule('Daily Task Reminder', '0 0 8 * * ?', new TaskReminderJob());
